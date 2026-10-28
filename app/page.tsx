@@ -124,7 +124,7 @@ export default function TodoApp() {
     fetchTodos();
   };
 
-  // Add Todo
+  // Add Todo (Full Optimistic UI: langsung muncul di layar tanpa tunggu jaringan)
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputTitle.trim();
@@ -136,8 +136,22 @@ export default function TodoApp() {
       return;
     }
 
+    // Buat item sementara dengan ID acak agar langsung nampak di UI seketika
+    const tempId = Date.now();
+    const optimisticTodo: Todo = {
+      id: tempId,
+      userId: Number(session?.user ? (session.user as any).id : 0),
+      title: trimmed,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Langsung update state UI dan kosongkan input field
+    setTodos((prev) => [optimisticTodo, ...prev]);
+    setInputTitle('');
+    inputRef.current?.focus();
+
     try {
-      setSubmitting(true);
       const res = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,18 +160,20 @@ export default function TodoApp() {
       const data = await res.json();
 
       if (data.success && data.data) {
-        setTodos((prev) => [data.data, ...prev]);
-        setInputTitle('');
+        // Ganti ID sementara dengan ID asli dari Supabase
+        setTodos((prev) =>
+          prev.map((t) => (t.id === tempId ? data.data : t))
+        );
         setDbError(null);
       } else {
+        // Rollback jika gagal
+        setTodos((prev) => prev.filter((t) => t.id !== tempId));
         setDbError(data.error || 'Gagal menambahkan catatan');
       }
     } catch (err) {
       console.error('Add todo error:', err);
+      setTodos((prev) => prev.filter((t) => t.id !== tempId));
       setDbError('Gagal menambahkan catatan. Pastikan koneksi database aktif.');
-    } finally {
-      setSubmitting(false);
-      inputRef.current?.focus();
     }
   };
 
