@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>To-Do List App</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header Section -->
+    <header class="app-header">
+      <div class="header-info">
+        <h1 class="app-title">To-Do List</h1>
+        <p class="current-date" id="current-date">Senin, 26 Oktober</p>
+      </div>
+      <button id="theme-toggle" class="theme-btn" type="button" aria-label="Ganti Tema">
+        <!-- Sun Icon (Light Mode) -->
+        <svg class="theme-icon sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <!-- Moon Icon (Dark Mode) -->
+        <svg class="theme-icon moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Progress Card -->
+    <section class="progress-section" id="progress-card">
+      <div class="progress-info">
+        <span class="progress-label">Progres Tugas</span>
+        <span class="progress-percent" id="progress-percent">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <p class="progress-status" id="progress-status">0 dari 0 tugas selesai</p>
+    </section>
+
+    <!-- Add Task Form -->
+    <form id="todo-form" class="todo-form" autocomplete="off">
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="todo-input"
+          class="todo-input"
+          placeholder="Tulis tugas baru di sini..."
+          maxlength="120"
+          required
+        />
+        <button type="submit" class="add-btn" id="add-btn" aria-label="Tambah Tugas">
+          <svg class="plus-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span class="btn-text">Tambah</span>
+        </button>
+      </div>
+    </form>
+
+    <!-- Filter & Action Controls -->
+    <div class="filters-bar">
+      <div class="filter-tabs" role="tablist">
+        <button type="button" class="filter-tab active" data-filter="all">Semua</button>
+        <button type="button" class="filter-tab" data-filter="active">Aktif</button>
+        <button type="button" class="filter-tab" data-filter="completed">Selesai</button>
+      </div>
+      <button type="button" class="clear-completed-btn" id="clear-completed-btn" title="Hapus semua tugas yang selesai">
+        Hapus Selesai
+      </button>
+    </div>
+
+    <!-- Todo List Items -->
+    <ul class="todo-list" id="todo-list">
+      <!-- Items generated dynamically by app.js -->
+    </ul>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="9" y1="15" x2="15" y2="15"></line>
+        </svg>
+      </div>
+      <h3 class="empty-title" id="empty-title">Belum ada tugas</h3>
+      <p class="empty-desc" id="empty-desc">Tambahkan tugas baru untuk mulai mengorganisir harimu!</p>
+    </div>
+
+    <!-- Footer Stats -->
+    <footer class="app-footer">
+      <span id="items-left">0 tugas tersisa</span>
+      <span class="shortcut-hint">Tekan <kbd>Enter</kbd> untuk menyimpan</span>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
