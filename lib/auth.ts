@@ -3,6 +3,13 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { supabaseAdmin } from '@/lib/supabase';
 
+/**
+ * Login dengan password teks biasa (isi manual di Supabase) hanya diizinkan saat development,
+ * atau jika ALLOW_PLAINTEXT_PASSWORDS=true di-set secara eksplisit. Di produksi default-nya MATI.
+ */
+const ALLOW_PLAINTEXT_PASSWORDS =
+  process.env.NODE_ENV !== 'production' || process.env.ALLOW_PLAINTEXT_PASSWORDS === 'true';
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
@@ -49,11 +56,13 @@ export const authOptions: NextAuthOptions = {
         if (isBcryptHash) {
           // Kasus 1: Password normal ter-enkripsi
           isValid = await bcrypt.compare(inputPassword, storedPassword);
-        } else {
-          // Kasus 2: Password diinput MANUAL teks biasa di Supabase (misal: "bedul123")
+        } else if (ALLOW_PLAINTEXT_PASSWORDS) {
+          // Kasus 2 (HANYA development / flag eksplisit): password diisi manual teks biasa di Supabase.
+          // Dinonaktifkan di produksi karena siapa pun yang bisa menulis ke tabel users
+          // dapat membuat akun dengan password teks biasa.
           isValid = inputPassword === storedPassword;
 
-          // Jika cocok, otomatis upgrade teks biasa menjadi hash bcrypt di Supabase demi keamanan
+          // Jika cocok, langsung upgrade menjadi hash bcrypt
           if (isValid) {
             const newHash = await bcrypt.hash(inputPassword, 10);
             await supabaseAdmin

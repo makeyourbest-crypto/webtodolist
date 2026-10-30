@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('Supabase insert user error:', insertError);
       return NextResponse.json(
-        { success: false, error: 'Gagal menyimpan akun ke Supabase: ' + insertError.message },
+        { success: false, error: 'Gagal membuat akun. Silakan coba lagi.' },
         { status: 500 }
       );
     }

@@ -1,4 +1,4 @@
-# 📖 Panduan Pengoperasian & Dokumentasi Arsitektur Web "Catatan Harian" (Supabase)
+# 📖 Panduan Pengoperasian & Dokumentasi Arsitektur Web "Catatan Harian"
 
 Aplikasi **Catatan Harian** adalah web aplikasi multi-user modern berbasis **Next.js 14 (App Router)**, **Tailwind CSS**, **NextAuth.js**, dan database cloud **PostgreSQL (Supabase)**.
 
@@ -9,45 +9,55 @@ Aplikasi **Catatan Harian** adalah web aplikasi multi-user modern berbasis **Nex
 1. **Sistem Autentikasi Pengguna (Multi-User)**:
    - Registrasi akun baru dengan enkripsi password searah menggunakan **bcrypt** (salt 10 rounds).
    - Login aman dengan session berbasis JWT (Cookie HTTP-Only yang tahan serangan XSS).
-   - Logout yang membersihkan sesi pengguna secara menyeluruh.
+   - Proteksi rute otomatis via `middleware.ts`: pengunjung dialihkan ke `/login`, dan pengguna yang sudah login dialihkan dari `/login`/`/register` langsung ke dashboard `/`.
 2. **Ruang Catatan Pribadi (Data Isolation)**:
    - Data catatan dikaitkan langsung dengan `user_id`. Pengguna hanya dapat membaca, menambah, mengubah, dan menghapus catatan miliknya sendiri.
    - Endpoint API dilindungi di sisi server (*Server-side Session Validation*).
-3. **Route Guarding (Middleware)**:
-   - Pengunjung yang belum login otomatis dialihkan (*redirect*) ke halaman `/login` jika mencoba mengakses dashboard `/`.
-4. **Antarmuka Bersih & Modern (Tailwind CSS)**:
+3. **Navigasi Tanggal Harian (Daily Logs)**:
+   - Tombol ◀ dan ▶ serta tombol cepat "Hari Ini" untuk menjelajahi catatan hari-hari sebelumnya.
+   - Pembuatan catatan baru dikhususkan untuk hari ini guna menjaga integritas jurnal harian.
+4. **Kotak Sampah & Pemulihan (Soft Delete & Restore)**:
+   - Menghapus catatan tidak langsung melenyapkannya dari database, melainkan dipindahkan ke tab **Sampah**.
+   - Dari tab Sampah, pengguna dapat:
+     - **Pulihkan (Restore ↺)**: Catatan kembali ke daftar aktif pada tanggal aslinya.
+     - **Hapus Permanen (✕)**: Menghapus catatan secara permanen dengan konfirmasi.
+     - **Kosongkan Sampah**: Membersihkan semua item di kotak sampah sekaligus.
+5. **Panel Riwayat Produktivitas (30 Hari Terakhir)**:
+   - Ikon jam riwayat di header menampilkan ringkasan catatan dan rasio penyelesaian dalam 30 hari terakhir.
+   - Klik pada salah satu hari di riwayat untuk langsung membuka catatan pada tanggal tersebut.
+6. **Performa Tinggi & Anti-Lemot**:
+   - **Lazy Loading**: Data Sampah dan data Riwayat hanya ditarik dari Supabase saat tab/panelnya dibuka oleh user.
+   - **Optimistic UI**: Aksi tambah, centang, hapus, dan pulihkan langsung terlihat dalam 0.01 detik tanpa jeda jaringan.
+   - **Serverless Region Singapore (`sin1`)**: Latensi serverless function Vercel diatur satu kawasan dengan Supabase (`ap-southeast-1`).
+7. **Antarmuka Bersih & Modern (Tailwind CSS)**:
    - Tampilan responsif (smartphone, tablet, desktop).
    - Mode gelap & terang (*Dark/Light Mode*).
-   - Progress bar pengerjaan catatan secara dinamis.
-   - Filter cepat (**Semua**, **Aktif**, **Selesai**) dan kotak pencarian instan (*quick search*).
+   - Progress bar dinamis dan kotak pencarian instan (*quick search*).
    - Edit judul catatan secara *inline* (klik pensil atau klik dua kali pada teks catatan).
-5. **Koneksi Cloud Database (Supabase SDK)**:
-   - Menggunakan client resmi `@supabase/supabase-js`.
-   - Menggunakan `supabaseAdmin` (Service Role Key) di backend untuk integritas operasi query.
 
 ---
 
 ## 🚀 Panduan Pengoperasian
 
 ### 1. Konfigurasi Lingkungan (`.env`)
-File `.env` sudah terisi dengan kredensial project Supabase kamu:
+Salin `.env.example` menjadi `.env`, lalu isi dengan kredensial project Supabase kamu:
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://vagwxjtieenpcqrjyutu.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+SUPABASE_SERVICE_ROLE_KEY=<service role key>
 
 NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=97f2ad0f5d5f098db99e797ed8ec130ba59305792feb36f042e541b63230a33b
+NEXTAUTH_SECRET=<string acak 32 karakter>
 ```
 
-### 2. Memastikan Skema Tabel di SQL Editor Supabase
-Jika belum menjalankan skrip SQL di dashboard Supabase:
-1. Buka [Dashboard Supabase](https://supabase.com/dashboard/project/vagwxjtieenpcqrjyutu) $\rightarrow$ pilih **SQL Editor**.
-2. Salin seluruh isi dari file [`database.sql`](file:///c:/Users/ADMIN/Desktop/webtodolist/database.sql).
-3. Klik tombol **Run**.
+> **Keamanan:** File `.env` sudah masuk `.gitignore` dan **tidak boleh di-commit**. `SUPABASE_SERVICE_ROLE_KEY` melewati semua pembatasan akses database, jadi jangan pernah ditempel ke chat, dokumen, atau repository.
 
-### 3. Menjalankan Server Aplikasi
-Jalankan perintah berikut di terminal:
+### 2. Skema Database di SQL Editor Supabase
+Tabel dan indeks relasi dapat dibuat/dimigrasikan dengan menjalankan skrip SQL:
+- Untuk instalasi baru: Gunakan file [`database.sql`](file:///c:/Users/ADMIN/Desktop/webtodolist/database.sql).
+- Untuk database yang sudah ada: Gunakan file [`migrations/001_soft_delete_and_history.sql`](file:///c:/Users/ADMIN/Desktop/webtodolist/migrations/001_soft_delete_and_history.sql).
+
+### 3. Menjalankan Server Lokal
 ```bash
 npm run dev
 ```
@@ -55,19 +65,35 @@ Buka browser ke 👉 **http://localhost:3000**
 
 ---
 
-## ☁️ Langkah Deployment ke Vercel (100% Gratis)
+## 🏗️ Struktur Arsitektur Kode
 
-1. **Push ke GitHub**:
-   Upload folder project ini ke repository GitHub pribadi kamu.
-2. **Buka Vercel**:
-   Kunjungi [vercel.com](https://vercel.com) dan login menggunakan akun GitHub.
-3. **Import Project**:
-   Pilih repository `webtodolist` yang baru kamu upload.
-4. **Environment Variables**:
-   Di halaman konfigurasi deploy Vercel, tambahkan variabel berikut (salin dari `.env`):
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `NEXTAUTH_SECRET`
-   - `NEXTAUTH_URL`: Isi dengan URL domain Vercel kamu (misal: `https://catatan-harian.vercel.app`)
-5. Klik **Deploy**! Web kamu langsung live online dan dapat diakses dari mana saja.
+```text
+webtodolist/
+├── app/
+│   ├── (auth)/                          # Route Group halaman autentikasi
+│   │   ├── login/page.tsx               # UI Form Login (Client Component)
+│   │   └── register/page.tsx            # UI Form Registrasi (Client Component)
+│   ├── api/
+│   │   ├── auth/
+│   │   │   ├── [...nextauth]/route.ts   # Handler Auth Engine (NextAuth)
+│   │   │   └── register/route.ts        # Endpoint POST registrasi user baru
+│   │   └── todos/
+│   │       ├── route.ts                 # GET (harian / sampah / riwayat), POST (tambah), DELETE (bersihkan / kosongkan)
+│   │       └── [id]/
+│   │           └── route.ts             # PUT (update / restore), DELETE (soft delete / permanent)
+│   ├── globals.css                      # Directive Tailwind CSS
+│   ├── layout.tsx                       # Root layout dengan SessionProvider wrapper
+│   └── page.tsx                         # Dashboard utama Catatan Harian (Navigasi Hari, Sampah, Riwayat)
+├── components/
+│   └── Providers.tsx                    # NextAuth SessionProvider client wrapper
+├── lib/
+│   ├── auth.ts                          # Opsi konfigurasi NextAuth (JWT & Credentials Provider)
+│   ├── supabase.ts                      # Client resmi Supabase SDK (Public & Admin Service Role)
+│   └── todo-format.ts                   # Helper format data catatan, parsing ISO date, & query column presets
+├── migrations/
+│   └── 001_soft_delete_and_history.sql  # Skrip migrasi kolom is_deleted & indeks komposit
+├── middleware.ts                        # Route Protection otomatis berbasis NextAuth token
+├── database.sql                         # Skema referensi lengkap PostgreSQL untuk Supabase
+├── vercel.json                          # Konfigurasi region Vercel (sin1 - Singapore)
+└── .env.example                         # Template variabel lingkungan
+```

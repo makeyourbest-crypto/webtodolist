@@ -151,7 +151,7 @@ export async function POST(request: Request) {
     if (error) {
       console.error('Supabase add todo error:', error);
       return NextResponse.json(
-        { success: false, error: 'Gagal menambahkan tugas ke Supabase: ' + error.message },
+        { success: false, error: 'Gagal menambahkan catatan. Silakan coba lagi.' },
         { status: 500 }
       );
     }
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('Error adding todo:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Gagal menambahkan tugas' },
+      { success: false, error: 'Gagal menambahkan catatan' },
       { status: 500 }
     );
   }

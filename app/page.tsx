@@ -29,6 +29,7 @@ interface Todo {
   title: string;
   completed: boolean;
   isDeleted?: boolean;
+  pending?: boolean; // true selama catatan baru belum mendapat ID asli dari server
   createdAt?: string;
   updatedAt?: string;
 }
@@ -60,6 +61,15 @@ const rangeParams = (d: Date) => {
   const to = addDays(from, 1);
   return `from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
 };
+
+// Urutan terbaru dulu, dan penggabungan tanpa duplikat (dipakai untuk rollback per item)
+const byCreatedDesc = (a: Todo, b: Todo) =>
+  new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+const mergeTodos = (prev: Todo[], items: Todo[]) => {
+  const ids = new Set(prev.map((t) => t.id));
+  return [...prev, ...items.filter((t) => !ids.has(t.id))].sort(byCreatedDesc);
+};
+const withoutIds = (list: Todo[], ids: number[]) => list.filter((t) => !ids.includes(t.id));
 
 export default function TodoApp() {
   const { data: session } = useSession();
@@ -239,6 +249,7 @@ export default function TodoApp() {
       userId: Number(session?.user ? (session.user as any).id : 0),
       title: trimmed,
       completed: false,
+      pending: true,
       createdAt: new Date().toISOString(),
     };
 
@@ -270,6 +281,7 @@ export default function TodoApp() {
 
   // Centang selesai
   const handleToggleTodo = async (todo: Todo) => {
+    if (todo.pending) return; // tunggu ID asli dari server
     const nextCompleted = !todo.completed;
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, completed: nextCompleted } : t)));
 
@@ -295,18 +307,19 @@ export default function TodoApp() {
 
   // Hapus -> pindah ke Sampah (soft delete)
   const handleDeleteTodo = async (todo: Todo) => {
-    const backupTodos = todos;
-    const backupTrash = trashTodos;
-    const backupCount = trashCount;
+    if (todo.pending) return;
 
-    setTodos((prev) => prev.filter((t) => t.id !== todo.id));
-    setTrashTodos((prev) => [{ ...todo, isDeleted: true, updatedAt: new Date().toISOString() }, ...prev]);
+    setTodos((prev) => withoutIds(prev, [todo.id]));
+    setTrashTodos((prev) =>
+      mergeTodos(prev, [{ ...todo, isDeleted: true, updatedAt: new Date().toISOString() }])
+    );
     setTrashCount((c) => c + 1);
 
+    // Rollback hanya untuk item ini, tidak menyentuh perubahan lain yang sedang berjalan
     const rollback = () => {
-      setTodos(backupTodos);
-      setTrashTodos(backupTrash);
-      setTrashCount(backupCount);
+      setTodos((prev) => mergeTodos(prev, [todo]));
+      setTrashTodos((prev) => withoutIds(prev, [todo.id]));
+      setTrashCount((c) => Math.max(0, c - 1));
     };
 
     try {
@@ -324,21 +337,22 @@ export default function TodoApp() {
 
   // Restore dari Sampah
   const handleRestoreTodo = async (todo: Todo) => {
-    const backupTodos = todos;
-    const backupTrash = trashTodos;
-    const backupCount = trashCount;
-
-    setTrashTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    setTrashTodos((prev) => withoutIds(prev, [todo.id]));
     setTrashCount((c) => Math.max(0, c - 1));
     // Jika catatan berasal dari hari yang sedang dilihat, langsung tampilkan kembali
-    if (selectedDate && todo.createdAt && isSameDay(new Date(todo.createdAt), selectedDate)) {
-      setTodos((prev) => [{ ...todo, isDeleted: false }, ...prev]);
+    const showsInCurrentDay = !!(
+      selectedDate &&
+      todo.createdAt &&
+      isSameDay(new Date(todo.createdAt), selectedDate)
+    );
+    if (showsInCurrentDay) {
+      setTodos((prev) => mergeTodos(prev, [{ ...todo, isDeleted: false }]));
     }
 
     const rollback = () => {
-      setTodos(backupTodos);
-      setTrashTodos(backupTrash);
-      setTrashCount(backupCount);
+      setTrashTodos((prev) => mergeTodos(prev, [todo]));
+      setTrashCount((c) => c + 1);
+      if (showsInCurrentDay) setTodos((prev) => withoutIds(prev, [todo.id]));
     };
 
     try {
@@ -362,14 +376,12 @@ export default function TodoApp() {
   const handlePermanentDelete = async (todo: Todo) => {
     if (!window.confirm(`Hapus permanen "${todo.title}"? Tindakan ini tidak bisa dibatalkan.`)) return;
 
-    const backupTrash = trashTodos;
-    const backupCount = trashCount;
-    setTrashTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    setTrashTodos((prev) => withoutIds(prev, [todo.id]));
     setTrashCount((c) => Math.max(0, c - 1));
 
     const rollback = () => {
-      setTrashTodos(backupTrash);
-      setTrashCount(backupCount);
+      setTrashTodos((prev) => mergeTodos(prev, [todo]));
+      setTrashCount((c) => c + 1);
     };
 
     try {
@@ -395,22 +407,24 @@ export default function TodoApp() {
     )
       return;
 
-    const backupTrash = trashTodos;
-    const backupCount = trashCount;
+    const removed = trashTodos;
     setTrashTodos([]);
     setTrashCount(0);
+
+    const rollback = () => {
+      setTrashTodos((prev) => mergeTodos(prev, removed));
+      setTrashCount((c) => c + removed.length);
+    };
 
     try {
       const res = await fetch('/api/todos?scope=trash', { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) {
-        setTrashTodos(backupTrash);
-        setTrashCount(backupCount);
+        rollback();
         setDbError(data.error || 'Gagal mengosongkan Sampah');
       }
     } catch {
-      setTrashTodos(backupTrash);
-      setTrashCount(backupCount);
+      rollback();
       setDbError('Gagal mengosongkan Sampah.');
     }
   };
@@ -418,24 +432,23 @@ export default function TodoApp() {
   // Pindahkan semua catatan selesai (hari terpilih) ke Sampah
   const handleClearCompleted = async () => {
     if (!selectedDate) return;
-    const completed = todos.filter((t) => t.completed);
+    const completed = todos.filter((t) => t.completed && !t.pending);
     if (completed.length === 0) return;
+    const ids = completed.map((t) => t.id);
 
-    const backupTodos = todos;
-    const backupTrash = trashTodos;
-    const backupCount = trashCount;
-
-    setTodos((prev) => prev.filter((t) => !t.completed));
-    setTrashTodos((prev) => [
-      ...completed.map((t) => ({ ...t, isDeleted: true, updatedAt: new Date().toISOString() })),
-      ...prev,
-    ]);
+    setTodos((prev) => withoutIds(prev, ids));
+    setTrashTodos((prev) =>
+      mergeTodos(
+        prev,
+        completed.map((t) => ({ ...t, isDeleted: true, updatedAt: new Date().toISOString() }))
+      )
+    );
     setTrashCount((c) => c + completed.length);
 
     const rollback = () => {
-      setTodos(backupTodos);
-      setTrashTodos(backupTrash);
-      setTrashCount(backupCount);
+      setTodos((prev) => mergeTodos(prev, completed));
+      setTrashTodos((prev) => withoutIds(prev, ids));
+      setTrashCount((c) => Math.max(0, c - completed.length));
     };
 
     try {
@@ -455,6 +468,7 @@ export default function TodoApp() {
 
   // Edit inline
   const handleStartEdit = (todo: Todo) => {
+    if (todo.pending) return;
     setEditingId(todo.id);
     setEditingTitle(todo.title);
   };
@@ -917,7 +931,7 @@ export default function TodoApp() {
                 return (
                   <li
                     key={todo.id}
-                    className={`group flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl border transition-all ${
+                    className={`group flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-2xl border transition-all ${todo.pending ? 'opacity-60' : ''} ${
                       isTrash || todo.completed
                         ? 'bg-slate-50/70 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800/60'
                         : 'bg-white dark:bg-slate-800 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-300 dark:hover:border-indigo-700/80 shadow-sm'
@@ -1041,6 +1055,7 @@ export default function TodoApp() {
                           <button
                             type="button"
                             onClick={() => handleStartEdit(todo)}
+                            disabled={todo.pending}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition"
                             title="Edit catatan"
                             aria-label="Edit catatan"
@@ -1050,6 +1065,7 @@ export default function TodoApp() {
                           <button
                             type="button"
                             onClick={() => handleDeleteTodo(todo)}
+                            disabled={todo.pending}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
                             title="Pindahkan ke Sampah"
                             aria-label="Pindahkan ke Sampah"

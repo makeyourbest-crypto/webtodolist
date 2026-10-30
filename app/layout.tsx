@@ -4,7 +4,7 @@ import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
   title: 'Catatan harian',
-  description: 'Aplikasi Catatan Harian modern dan responsif dengan Next.js, Tailwind CSS, dan database MySQL.',
+  description: 'Aplikasi Catatan Harian modern dan responsif dengan Next.js, Tailwind CSS, dan database cloud Supabase.',
 };
 
 export default function RootLayout({
