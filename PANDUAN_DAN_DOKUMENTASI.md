@@ -22,14 +22,22 @@ Aplikasi **Catatan Harian** adalah web aplikasi multi-user modern berbasis **Nex
      - **Pulihkan (Restore ↺)**: Catatan kembali ke daftar aktif pada tanggal aslinya.
      - **Hapus Permanen (✕)**: Menghapus catatan secara permanen dengan konfirmasi.
      - **Kosongkan Sampah**: Membersihkan semua item di kotak sampah sekaligus.
-5. **Panel Riwayat Produktivitas (30 Hari Terakhir)**:
-   - Ikon jam riwayat di header menampilkan ringkasan catatan dan rasio penyelesaian dalam 30 hari terakhir.
-   - Klik pada salah satu hari di riwayat untuk langsung membuka catatan pada tanggal tersebut.
-6. **Performa Tinggi & Anti-Lemot**:
-   - **Lazy Loading**: Data Sampah dan data Riwayat hanya ditarik dari Supabase saat tab/panelnya dibuka oleh user.
+5. **Modal Popup Kalender & Peta Aktivitas (Heatmap)**:
+   - Tombol kalender di header atau klik tanggal membuka modal popup kalender bulanan.
+   - **Navigasi Cepat**: Panah [ ◀ ] dan [ ▶ ], dropdown manual Bulan & Tahun, serta tombol "Bulan Ini".
+   - **Visualisasi Warna Hari**:
+     - ⬜ **Abu-abu**: 0 tugas dibuat (hari kosong).
+     - 🟩 **Hijau**: Tepat 1 tugas dibuat.
+     - 🟦 **Biru**: Lebih dari 1 tugas dibuat (&gt;1 tugas).
+   - Klik tanggal pada kalender langsung mengarahkan tampilan ke hari tersebut.
+6. **Ekspor Data Rekap Bulanan (CSV / Excel)**:
+   - Tombol "Unduh Rekap Bulan Ini (CSV)" di dalam modal kalender.
+   - Diproses cepat di sisi klien (0 overhead server) dengan format UTF-8 BOM yang rapi saat dibuka di Microsoft Excel.
+7. **Performa Tinggi & Anti-Lemot**:
+   - **Lazy Loading**: Data Sampah, Riwayat, dan data Kalender Bulanan hanya ditarik dari Supabase saat modal atau tab dibuka.
    - **Optimistic UI**: Aksi tambah, centang, hapus, dan pulihkan langsung terlihat dalam 0.01 detik tanpa jeda jaringan.
    - **Serverless Region Singapore (`sin1`)**: Latensi serverless function Vercel diatur satu kawasan dengan Supabase (`ap-southeast-1`).
-7. **Antarmuka Bersih & Modern (Tailwind CSS)**:
+8. **Antarmuka Bersih & Modern (Tailwind CSS)**:
    - Tampilan responsif (smartphone, tablet, desktop).
    - Mode gelap & terang (*Dark/Light Mode*).
    - Progress bar dinamis dan kotak pencarian instan (*quick search*).
@@ -85,6 +93,7 @@ webtodolist/
 │   ├── layout.tsx                       # Root layout dengan SessionProvider wrapper
 │   └── page.tsx                         # Dashboard utama Catatan Harian (Navigasi Hari, Sampah, Riwayat)
 ├── components/
+│   ├── CalendarModal.tsx                # Modal Popup Kalender Aktivitas & Ekspor CSV
 │   └── Providers.tsx                    # NextAuth SessionProvider client wrapper
 ├── lib/
 │   ├── auth.ts                          # Opsi konfigurasi NextAuth (JWT & Credentials Provider)

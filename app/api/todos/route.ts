@@ -73,6 +73,35 @@ export async function GET(request: Request) {
       });
     }
 
+    if (view === 'month') {
+      if (!from || !to) {
+        return NextResponse.json(
+          { success: false, error: 'Parameter "from" dan "to" wajib diisi' },
+          { status: 400 }
+        );
+      }
+      const { data, error } = await supabaseAdmin
+        .from('todos')
+        .select('id, title, completed, created_at')
+        .eq('user_id', userId)
+        .eq('is_deleted', false)
+        .gte('created_at', from)
+        .lt('created_at', to)
+        .order('created_at', { ascending: true })
+        .limit(2000);
+
+      if (error) throw error;
+      return NextResponse.json({
+        success: true,
+        data: (data || []).map((r: any) => ({
+          id: Number(r.id),
+          title: r.title as string,
+          completed: Boolean(r.completed),
+          createdAt: r.created_at as string,
+        })),
+      });
+    }
+
     // view = day
     if (!from || !to) {
       return NextResponse.json(

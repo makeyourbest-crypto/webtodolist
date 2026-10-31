@@ -22,6 +22,7 @@ import {
   RotateCcw,
   History,
 } from 'lucide-react';
+import CalendarModal from '@/components/CalendarModal';
 
 interface Todo {
   id: number;
@@ -93,6 +94,7 @@ export default function TodoApp() {
   const [filter, setFilter] = useState<Filter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
 
   // Form & edit
   const [inputTitle, setInputTitle] = useState('');
@@ -589,6 +591,19 @@ export default function TodoApp() {
             )}
 
             <button
+              onClick={() => setShowCalendarModal(true)}
+              className={`p-2.5 rounded-xl border transition ${
+                showCalendarModal
+                  ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+              }`}
+              aria-label="Peta Aktivitas & Kalender"
+              title="Peta Aktivitas & Kalender Bulanan"
+            >
+              <Calendar className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={() => setShowHistory((v) => !v)}
               className={`p-2.5 rounded-xl border transition ${
                 showHistory
@@ -710,9 +725,14 @@ export default function TodoApp() {
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex-1 text-center">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              {selectedDate ? (isToday ? 'Hari ini' : formatShort(selectedDate)) : '...'}
+          <div
+            onClick={() => setShowCalendarModal(true)}
+            className="flex-1 text-center cursor-pointer hover:opacity-85 transition select-none group"
+            title="Klik untuk membuka Kalender Bulanan"
+          >
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-1.5">
+              <span>{selectedDate ? (isToday ? 'Hari ini' : formatShort(selectedDate)) : '...'}</span>
+              <Calendar className="w-3.5 h-3.5 text-indigo-500 opacity-60 group-hover:opacity-100 transition" />
             </p>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {selectedDate ? formatLong(selectedDate) : ''}
@@ -1094,6 +1114,17 @@ export default function TodoApp() {
           </span>
         </footer>
       </div>
+
+      <CalendarModal
+        isOpen={showCalendarModal}
+        onClose={() => setShowCalendarModal(false)}
+        onSelectDate={(d) => {
+          goToDate(d);
+          setFilter('all');
+        }}
+        selectedDate={selectedDate}
+        today={today}
+      />
     </main>
   );
 }
