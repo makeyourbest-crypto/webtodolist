@@ -79,6 +79,44 @@ export async function PUT(request: Request, { params }: RouteParams) {
       updatePayload.is_deleted = false;
     }
 
+    // Proteksi: Cek apakah catatan berasal dari hari lampau (sebelum hari ini).
+    // Catatan riwayat masa lalu bersifat Read-Only (tidak boleh diedit/diubah statusnya, dan tidak boleh dipulihkan jika di Sampah).
+    const { data: existingTodo, error: findError } = await supabaseAdmin
+      .from('todos')
+      .select('created_at')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (findError || !existingTodo) {
+      return NextResponse.json(
+        { success: false, error: 'Catatan tidak ditemukan atau Anda tidak memiliki akses' },
+        { status: 404 }
+      );
+    }
+
+    const todoCreatedAt = new Date(existingTodo.created_at);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todoDayStart = new Date(
+      todoCreatedAt.getFullYear(),
+      todoCreatedAt.getMonth(),
+      todoCreatedAt.getDate()
+    ).getTime();
+
+    if (todoDayStart < todayStart) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            restore === true
+              ? 'Catatan dari hari lampau tidak dapat dipulihkan dari Sampah.'
+              : 'Catatan masa lalu bersifat arsip (Hanya Baca) dan tidak dapat diubah.',
+        },
+        { status: 403 }
+      );
+    }
+
     const { data: updated, error } = await supabaseAdmin
       .from('todos')
       .update(updatePayload)
@@ -118,6 +156,41 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     const permanent = new URL(request.url).searchParams.get('permanent') === 'true';
 
     if (permanent) {
+      // Cek apakah catatan di Sampah berasal dari hari lampau
+      const { data: existingTodo, error: findError } = await supabaseAdmin
+        .from('todos')
+        .select('created_at')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .eq('is_deleted', true)
+        .maybeSingle();
+
+      if (findError || !existingTodo) {
+        return NextResponse.json(
+          { success: false, error: 'Catatan tidak ditemukan di Sampah' },
+          { status: 404 }
+        );
+      }
+
+      const todoCreatedAt = new Date(existingTodo.created_at);
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const todoDayStart = new Date(
+        todoCreatedAt.getFullYear(),
+        todoCreatedAt.getMonth(),
+        todoCreatedAt.getDate()
+      ).getTime();
+
+      if (todoDayStart < todayStart) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Catatan sampah dari hari lampau terkunci sebagai arsip dan tidak dapat dihapus.',
+          },
+          { status: 403 }
+        );
+      }
+
       const { data, error } = await supabaseAdmin
         .from('todos')
         .delete()
@@ -134,6 +207,41 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         );
       }
       return NextResponse.json({ success: true, message: 'Catatan dihapus permanen' });
+    }
+
+    // Proteksi: Cek apakah catatan berasal dari hari lampau (sebelum hari ini).
+    // Catatan masa lalu terkunci dan tidak boleh dihapus ke tempat sampah.
+    const { data: existingTodo, error: findError } = await supabaseAdmin
+      .from('todos')
+      .select('created_at')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (findError || !existingTodo) {
+      return NextResponse.json(
+        { success: false, error: 'Catatan tidak ditemukan atau Anda tidak memiliki akses' },
+        { status: 404 }
+      );
+    }
+
+    const todoCreatedAt = new Date(existingTodo.created_at);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todoDayStart = new Date(
+      todoCreatedAt.getFullYear(),
+      todoCreatedAt.getMonth(),
+      todoCreatedAt.getDate()
+    ).getTime();
+
+    if (todoDayStart < todayStart) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Catatan masa lalu bersifat arsip (Hanya Baca) dan tidak dapat dihapus.',
+        },
+        { status: 403 }
+      );
     }
 
     const { data, error } = await supabaseAdmin

@@ -351,18 +351,30 @@ export default function CalendarModal({
                   selectedDate.getMonth() === month &&
                   selectedDate.getDate() === dayNum;
 
-                // Color code rule:
-                // count === 0 : Abu-abu
-                // count === 1 : Hijau
-                // count > 1   : Biru
+                // Cek apakah tanggal ini adalah hari lampau (sebelum hari ini)
+                const isPastDay = Boolean(
+                  today &&
+                    new Date(year, month, dayNum, 0, 0, 0, 0).getTime() <
+                      new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0).getTime()
+                );
+
+                // Aturan Pewarnaan:
+                // - Hari lewat kosong (count === 0 && isPastDay): Merah / Rose (tanda terlewat/bolong)
+                // - Hari ini / mendatang kosong: Abu-abu netral
+                // - 1 tugas: Hijau Emerald
+                // - >1 tugas: Biru Kontras Tinggi / Cyan Electric
                 let colorClass =
                   'bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/60 hover:border-slate-400';
-                if (count === 1) {
+
+                if (count === 0 && isPastDay) {
+                  colorClass =
+                    'bg-rose-100/80 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-300/80 dark:border-rose-800/60 hover:border-rose-400';
+                } else if (count === 1) {
                   colorClass =
                     'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 font-semibold hover:border-emerald-500';
                 } else if (count > 1) {
                   colorClass =
-                    'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-200 border-sky-300 dark:border-sky-700 font-bold hover:border-sky-500';
+                    'bg-cyan-100 dark:bg-cyan-950/90 text-cyan-900 dark:text-cyan-100 border-cyan-400 dark:border-cyan-600 font-extrabold shadow-sm hover:border-cyan-500';
                 }
 
                 const ringClass = isCellToday
@@ -373,7 +385,9 @@ export default function CalendarModal({
 
                 const tooltipTitle =
                   count === 0
-                    ? `${dayNum} ${MONTH_NAMES[month]} ${year}: Belum ada catatan`
+                    ? isPastDay
+                      ? `${dayNum} ${MONTH_NAMES[month]} ${year}: Terlewat (tidak ada catatan)`
+                      : `${dayNum} ${MONTH_NAMES[month]} ${year}: Belum ada catatan`
                     : `${dayNum} ${MONTH_NAMES[month]} ${year}: ${count} catatan (${completed} selesai)`;
 
                 return (
@@ -404,18 +418,22 @@ export default function CalendarModal({
 
         {/* ================== LEGENDA WARNA ================== */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             <span className="font-semibold text-slate-600 dark:text-slate-300">Aktivitas:</span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" title="Hari yang terlewat tanpa catatan">
+              <span className="w-3.5 h-3.5 rounded-md bg-rose-200 dark:bg-rose-900 border border-rose-300 dark:border-rose-700" />
+              <span>Terlewat</span>
+            </div>
+            <div className="flex items-center gap-1.5" title="Hari ini atau hari mendatang yang belum ada catatan">
               <span className="w-3.5 h-3.5 rounded-md bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600" />
               <span>0 Tugas</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" title="Tepat 1 tugas dicatat">
               <span className="w-3.5 h-3.5 rounded-md bg-emerald-300 dark:bg-emerald-700 border border-emerald-400 dark:border-emerald-600" />
               <span>1 Tugas</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-md bg-sky-300 dark:bg-sky-700 border border-sky-400 dark:border-sky-600" />
+            <div className="flex items-center gap-1.5" title="Lebih dari 1 tugas dicatat">
+              <span className="w-3.5 h-3.5 rounded-md bg-cyan-300 dark:bg-cyan-600 border border-cyan-400 dark:border-cyan-500" />
               <span>&gt;1 Tugas</span>
             </div>
           </div>

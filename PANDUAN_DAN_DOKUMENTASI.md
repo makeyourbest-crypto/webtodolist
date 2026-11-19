@@ -26,18 +26,23 @@ Aplikasi **Catatan Harian** adalah web aplikasi multi-user modern berbasis **Nex
    - Tombol kalender di header atau klik tanggal membuka modal popup kalender bulanan.
    - **Navigasi Cepat**: Panah [ ◀ ] dan [ ▶ ], dropdown manual Bulan & Tahun, serta tombol "Bulan Ini".
    - **Visualisasi Warna Hari**:
-     - ⬜ **Abu-abu**: 0 tugas dibuat (hari kosong).
-     - 🟩 **Hijau**: Tepat 1 tugas dibuat.
-     - 🟦 **Biru**: Lebih dari 1 tugas dibuat (&gt;1 tugas).
+     - 🟥 **Merah / Rose**: Hari lampau yang terlewat (0 tugas/kosong).
+     - ⬜ **Abu-abu**: Hari ini atau hari mendatang yang belum ada catatan (0 tugas).
+     - 🟩 **Hijau Emerald**: Tepat 1 tugas dibuat.
+     - 🟦 **Cyan / Biru Terang**: Lebih dari 1 tugas dibuat (>1 tugas, hari produktif).
    - Klik tanggal pada kalender langsung mengarahkan tampilan ke hari tersebut.
-6. **Ekspor Data Rekap Bulanan (CSV / Excel)**:
+6. **Proteksi Arsip Masa Lalu (Read-Only)**:
+   - Tanggal sebelum hari ini otomatis berstatus Hanya Baca.
+   - Tombol edit dan hapus disembunyikan serta checkbox dikunci.
+   - Hari lampau yang kosong menampilkan status peringatan visual.
+7. **Ekspor Data Rekap Bulanan (CSV / Excel)**:
    - Tombol "Unduh Rekap Bulan Ini (CSV)" di dalam modal kalender.
    - Diproses cepat di sisi klien (0 overhead server) dengan format UTF-8 BOM yang rapi saat dibuka di Microsoft Excel.
-7. **Performa Tinggi & Anti-Lemot**:
+8. **Performa Tinggi & Anti-Lemot**:
    - **Lazy Loading**: Data Sampah, Riwayat, dan data Kalender Bulanan hanya ditarik dari Supabase saat modal atau tab dibuka.
    - **Optimistic UI**: Aksi tambah, centang, hapus, dan pulihkan langsung terlihat dalam 0.01 detik tanpa jeda jaringan.
    - **Serverless Region Singapore (`sin1`)**: Latensi serverless function Vercel diatur satu kawasan dengan Supabase (`ap-southeast-1`).
-8. **Antarmuka Bersih & Modern (Tailwind CSS)**:
+9. **Antarmuka Bersih & Modern (Tailwind CSS)**:
    - Tampilan responsif (smartphone, tablet, desktop).
    - Mode gelap & terang (*Dark/Light Mode*).
    - Progress bar dinamis dan kotak pencarian instan (*quick search*).

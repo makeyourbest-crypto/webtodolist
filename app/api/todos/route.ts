@@ -35,11 +35,17 @@ export async function GET(request: Request) {
     const to = parseIsoDate(searchParams.get('to'));
 
     if (view === 'trash') {
-      const { data, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('todos')
         .select(TODO_COLUMNS)
         .eq('user_id', userId)
-        .eq('is_deleted', true)
+        .eq('is_deleted', true);
+
+      if (from && to) {
+        query = query.gte('created_at', from).lt('created_at', to);
+      }
+
+      const { data, error } = await query
         .order('updated_at', { ascending: false })
         .limit(200);
 
@@ -125,7 +131,9 @@ export async function GET(request: Request) {
         .from('todos')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('is_deleted', true),
+        .eq('is_deleted', true)
+        .gte('created_at', from)
+        .lt('created_at', to),
     ]);
 
     if (todosRes.error) throw todosRes.error;
@@ -209,14 +217,20 @@ export async function DELETE(request: Request) {
     const scope = searchParams.get('scope') || 'completed';
 
     if (scope === 'trash') {
+      // Hanya hapus permanen catatan sampah yang dibuat HARI INI.
+      // Catatan sampah dari hari lampau tetap tersimpan sebagai arsip riwayat.
+      const now = new Date();
+      const todayIso = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+
       const { error } = await supabaseAdmin
         .from('todos')
         .delete()
         .eq('user_id', userId)
-        .eq('is_deleted', true);
+        .eq('is_deleted', true)
+        .gte('created_at', todayIso);
 
       if (error) throw error;
-      return NextResponse.json({ success: true, message: 'Sampah berhasil dikosongkan' });
+      return NextResponse.json({ success: true, message: 'Sampah hari ini berhasil dikosongkan' });
     }
 
     const from = parseIsoDate(searchParams.get('from'));

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   RotateCcw,
   History,
+  Lock,
 } from 'lucide-react';
 import CalendarModal from '@/components/CalendarModal';
 
@@ -110,6 +111,12 @@ export default function TodoApp() {
 
   const isTrash = filter === 'trash';
   const isToday = !!(selectedDate && today && isSameDay(selectedDate, today));
+  const isPastDate = !!(
+    selectedDate &&
+    today &&
+    !isToday &&
+    selectedDate.getTime() < today.getTime()
+  );
 
   /* ------------------------------ Inisialisasi ------------------------------ */
   useEffect(() => {
@@ -160,10 +167,11 @@ export default function TodoApp() {
     }
   }, []);
 
-  const fetchTrash = useCallback(async () => {
+  const fetchTrash = useCallback(async (date?: Date | null) => {
     setTrashLoading(true);
     try {
-      const res = await fetch('/api/todos?view=trash', { cache: 'no-store' });
+      const url = date ? `/api/todos?view=trash&${rangeParams(date)}` : '/api/todos?view=trash';
+      const res = await fetch(url, { cache: 'no-store' });
       const data = await res.json();
       if (data.success) {
         setTrashTodos(data.data || []);
@@ -207,8 +215,8 @@ export default function TodoApp() {
 
   // Lazy: Sampah hanya dimuat saat tab dibuka
   useEffect(() => {
-    if (filter === 'trash') fetchTrash();
-  }, [filter, fetchTrash]);
+    if (filter === 'trash') fetchTrash(selectedDate);
+  }, [filter, selectedDate, fetchTrash]);
 
   // Lazy: Riwayat hanya dimuat saat panel dibuka
   useEffect(() => {
@@ -217,8 +225,10 @@ export default function TodoApp() {
 
   const handleRetry = () => {
     setRetrying(true);
-    if (selectedDate) fetchDay(selectedDate);
-    if (isTrash) fetchTrash();
+    if (selectedDate) {
+      fetchDay(selectedDate);
+      if (isTrash) fetchTrash(selectedDate);
+    }
   };
 
   /* ---------------------------- Navigasi tanggal ---------------------------- */
@@ -283,7 +293,7 @@ export default function TodoApp() {
 
   // Centang selesai
   const handleToggleTodo = async (todo: Todo) => {
-    if (todo.pending) return; // tunggu ID asli dari server
+    if (todo.pending || isPastDate) return; // tunggu ID asli atau kunci jika hari lampau
     const nextCompleted = !todo.completed;
     setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, completed: nextCompleted } : t)));
 
@@ -309,7 +319,7 @@ export default function TodoApp() {
 
   // Hapus -> pindah ke Sampah (soft delete)
   const handleDeleteTodo = async (todo: Todo) => {
-    if (todo.pending) return;
+    if (todo.pending || isPastDate) return;
 
     setTodos((prev) => withoutIds(prev, [todo.id]));
     setTrashTodos((prev) =>
@@ -339,6 +349,15 @@ export default function TodoApp() {
 
   // Restore dari Sampah
   const handleRestoreTodo = async (todo: Todo) => {
+    // Cek apakah catatan berasal dari hari lampau (sebelum hari ini)
+    if (todo.createdAt && today) {
+      const todoDate = startOfDay(new Date(todo.createdAt));
+      if (todoDate.getTime() < today.getTime()) {
+        alert('Catatan dari hari lampau tidak dapat dipulihkan dari Sampah.');
+        return;
+      }
+    }
+
     setTrashTodos((prev) => withoutIds(prev, [todo.id]));
     setTrashCount((c) => Math.max(0, c - 1));
     // Jika catatan berasal dari hari yang sedang dilihat, langsung tampilkan kembali
@@ -376,6 +395,15 @@ export default function TodoApp() {
 
   // Hapus permanen satu catatan di Sampah
   const handlePermanentDelete = async (todo: Todo) => {
+    // Catatan sampah dari hari lampau terkunci sebagai arsip
+    if (todo.createdAt && today) {
+      const todoDate = startOfDay(new Date(todo.createdAt));
+      if (todoDate.getTime() < today.getTime()) {
+        alert('Catatan sampah dari hari lampau terkunci sebagai arsip dan tidak dapat dihapus.');
+        return;
+      }
+    }
+
     if (!window.confirm(`Hapus permanen "${todo.title}"? Tindakan ini tidak bisa dibatalkan.`)) return;
 
     setTrashTodos((prev) => withoutIds(prev, [todo.id]));
@@ -433,7 +461,7 @@ export default function TodoApp() {
 
   // Pindahkan semua catatan selesai (hari terpilih) ke Sampah
   const handleClearCompleted = async () => {
-    if (!selectedDate) return;
+    if (!selectedDate || isPastDate) return;
     const completed = todos.filter((t) => t.completed && !t.pending);
     if (completed.length === 0) return;
     const ids = completed.map((t) => t.id);
@@ -470,7 +498,7 @@ export default function TodoApp() {
 
   // Edit inline
   const handleStartEdit = (todo: Todo) => {
-    if (todo.pending) return;
+    if (todo.pending || isPastDate) return;
     setEditingId(todo.id);
     setEditingTitle(todo.title);
   };
@@ -821,8 +849,19 @@ export default function TodoApp() {
               </div>
             </form>
           ) : (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-              <span>Kamu sedang melihat catatan hari lain. Catatan baru hanya bisa dibuat untuk hari ini.</span>
+            <div className={`flex items-center justify-between gap-3 p-3 rounded-2xl border text-xs ${
+              isPastDate
+                ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300'
+                : 'border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+            }`}>
+              <div className="flex items-center gap-2">
+                {isPastDate && <Lock className="w-3.5 h-3.5 shrink-0" />}
+                <span>
+                  {isPastDate
+                    ? 'Kamu sedang melihat riwayat masa lalu (arsip terkunci). Catatan baru hanya bisa dibuat untuk hari ini.'
+                    : 'Kamu sedang melihat catatan hari lain. Catatan baru hanya bisa dibuat untuk hari ini.'}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={goToday}
@@ -850,15 +889,17 @@ export default function TodoApp() {
               >
                 Selesai ({completedCount})
               </button>
-              <button type="button" onClick={() => setFilter('trash')} className={tabClass(filter === 'trash')}>
-                <span className="inline-flex items-center gap-1">
-                  <Trash2 className="w-3 h-3" />
-                  Sampah ({trashCount})
-                </span>
-              </button>
+              {(!isPastDate || trashCount > 0) && (
+                <button type="button" onClick={() => setFilter('trash')} className={tabClass(filter === 'trash')}>
+                  <span className="inline-flex items-center gap-1">
+                    <Trash2 className="w-3 h-3" />
+                    Sampah ({trashCount})
+                  </span>
+                </button>
+              )}
             </div>
 
-            {!isTrash && completedCount > 0 && (
+            {!isTrash && !isPastDate && completedCount > 0 && (
               <button
                 type="button"
                 onClick={handleClearCompleted}
@@ -868,7 +909,13 @@ export default function TodoApp() {
                 Bersihkan Selesai ({completedCount})
               </button>
             )}
-            {isTrash && trashTodos.length > 0 && (
+            {!isTrash && isPastDate && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg">
+                <Lock className="w-3 h-3" />
+                Arsip Terkunci
+              </span>
+            )}
+            {isTrash && !isPastDate && trashTodos.length > 0 && (
               <button
                 type="button"
                 onClick={handleEmptyTrash}
@@ -903,7 +950,9 @@ export default function TodoApp() {
 
           {isTrash && (
             <p className="text-[11px] text-slate-400">
-              Catatan di Sampah bisa dikembalikan kapan saja. Hapus permanen tidak bisa dibatalkan.
+              {isPastDate
+                ? 'Catatan sampah dari hari lampau terkunci sebagai arsip.'
+                : 'Catatan di Sampah bisa dikembalikan kapan saja. Hapus permanen tidak bisa dibatalkan.'}
             </p>
           )}
         </div>
@@ -916,9 +965,23 @@ export default function TodoApp() {
               <p className="text-xs">{isTrash ? 'Memuat Sampah...' : 'Memuat catatan...'}</p>
             </div>
           ) : visibleTodos.length === 0 ? (
-            <div className="py-12 px-4 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="w-12 h-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-500">
-                {isTrash ? <Trash2 className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
+            <div className={`py-12 px-4 text-center rounded-2xl border-2 border-dashed space-y-2 ${
+              !isTrash && isPastDate
+                ? 'border-rose-200 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/10'
+                : 'border-slate-200 dark:border-slate-800'
+            }`}>
+              <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${
+                !isTrash && isPastDate
+                  ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-500'
+                  : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-500'
+              }`}>
+                {isTrash ? (
+                  <Trash2 className="w-6 h-6" />
+                ) : !isTrash && isPastDate ? (
+                  <AlertCircle className="w-6 h-6" />
+                ) : (
+                  <CheckCircle2 className="w-6 h-6" />
+                )}
               </div>
               <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">
                 {searchQuery
@@ -931,6 +994,8 @@ export default function TodoApp() {
                   ? 'Belum ada catatan selesai'
                   : isToday
                   ? 'Belum ada catatan hari ini'
+                  : isPastDate
+                  ? 'Hari ini terlewat tanpa catatan'
                   : 'Tidak ada catatan di hari ini'}
               </h3>
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
@@ -940,6 +1005,8 @@ export default function TodoApp() {
                   ? 'Catatan yang kamu hapus akan muncul di sini.'
                   : isToday
                   ? 'Tulis catatan atau tugas pertamamu di atas!'
+                  : isPastDate
+                  ? 'Tidak ada catatan yang dibuat pada tanggal ini.'
                   : 'Gunakan panah untuk melihat hari lain, atau buka Riwayat.'}
               </p>
             </div>
@@ -958,13 +1025,16 @@ export default function TodoApp() {
                     }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      {isTrash ? (
+                      {isTrash || isPastDate ? (
                         <div
                           className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 ${
                             todo.completed
-                              ? 'bg-slate-400 border-slate-400 text-white'
-                              : 'border-slate-300 dark:border-slate-600'
+                              ? isPastDate
+                                ? 'bg-slate-400/80 dark:bg-slate-600 border-slate-400 dark:border-slate-600 text-white'
+                                : 'bg-slate-400 border-slate-400 text-white'
+                              : 'border-slate-300 dark:border-slate-600 bg-slate-100/50 dark:bg-slate-800/50'
                           }`}
+                          title={isPastDate ? 'Arsip terkunci (tidak bisa diubah)' : undefined}
                         >
                           {todo.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                         </div>
@@ -1031,6 +1101,17 @@ export default function TodoApp() {
                             {todo.updatedAt ? ` · Dihapus ${formatShort(new Date(todo.updatedAt))}` : ''}
                           </p>
                         </div>
+                      ) : isPastDate ? (
+                        <span
+                          className={`text-sm sm:text-base select-none truncate ${
+                            todo.completed
+                              ? 'line-through text-slate-400 dark:text-slate-500'
+                              : 'text-slate-700 dark:text-slate-200'
+                          }`}
+                          title="Arsip riwayat (Hanya Baca)"
+                        >
+                          {todo.title}
+                        </span>
                       ) : (
                         <span
                           onClick={() => handleToggleTodo(todo)}
@@ -1049,25 +1130,45 @@ export default function TodoApp() {
 
                     {/* Aksi */}
                     {isTrash ? (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleRestoreTodo(todo)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition"
-                          title="Kembalikan catatan"
-                          aria-label="Kembalikan catatan"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handlePermanentDelete(todo)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
-                          title="Hapus permanen"
-                          aria-label="Hapus permanen"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                      (() => {
+                        const isTrashPastDate = Boolean(
+                          todo.createdAt && today && startOfDay(new Date(todo.createdAt)).getTime() < today.getTime()
+                        );
+
+                        if (isTrashPastDate) {
+                          return (
+                            <div className="shrink-0 text-slate-300 dark:text-slate-600 p-1" title="Arsip Sampah Lampau (Terkunci)">
+                              <Lock className="w-3.5 h-3.5" />
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreTodo(todo)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition"
+                              title="Kembalikan catatan"
+                              aria-label="Kembalikan catatan"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePermanentDelete(todo)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition"
+                              title="Hapus permanen"
+                              aria-label="Hapus permanen"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })()
+                    ) : isPastDate ? (
+                      <div className="shrink-0 text-slate-300 dark:text-slate-600 p-1" title="Terkunci (Hanya Baca)">
+                        <Lock className="w-3.5 h-3.5" />
                       </div>
                     ) : (
                       !isEditing && (
