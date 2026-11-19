@@ -24,6 +24,7 @@ interface CalendarModalProps {
   onSelectDate: (date: Date) => void;
   selectedDate: Date | null;
   today: Date | null;
+  userName?: string | null;
 }
 
 const MONTH_NAMES = [
@@ -49,6 +50,7 @@ export default function CalendarModal({
   onSelectDate,
   selectedDate,
   today,
+  userName,
 }: CalendarModalProps) {
   const initialDate = selectedDate || today || new Date();
   const [year, setYear] = useState<number>(initialDate.getFullYear());
@@ -180,26 +182,66 @@ export default function CalendarModal({
     }
 
     const BOM = '\uFEFF';
-    const headers = ['No', 'Tanggal', 'Waktu', 'Judul Catatan', 'Status'];
+    const cleanUserName = userName ? userName.trim() : 'User';
+    const totalCount = todos.length;
+    const completedCount = todos.filter((t) => t.completed).length;
+    const activeCount = totalCount - completedCount;
+    const percent = Math.round((completedCount / totalCount) * 100);
+
+    // 1. Header Informasi Laporan
+    const titleRow = `"LAPORAN AKTIVITAS BULANAN - CATATAN HARIAN"`;
+    const metaRow = `"Pengguna: ${cleanUserName}","Periode: ${MONTH_NAMES[month]} ${year}","Diunduh: ${new Date().toLocaleDateString('id-ID')}"`;
+    const emptyRow = '';
+
+    // 2. Header Kolom Tabel
+    const tableHeaders = ['No', 'Hari', 'Tanggal', 'Waktu', 'Judul Catatan', 'Status'];
+
+    // 3. Data Baris Catatan
+    const DAY_FULL_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
     const rows = todos.map((item, idx) => {
       const d = new Date(item.createdAt);
+      const dayName = DAY_FULL_NAMES[d.getDay()];
       const dateStr = d.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       });
-      const timeStr = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const timeStr = `${hours}:${minutes}`;
       const cleanTitle = `"${item.title.replace(/"/g, '""')}"`;
       const status = item.completed ? 'Selesai' : 'Belum Selesai';
-      return [idx + 1, dateStr, timeStr, cleanTitle, status].join(',');
+      return [idx + 1, dayName, dateStr, timeStr, cleanTitle, status].join(',');
     });
 
-    const csvContent = BOM + [headers.join(','), ...rows].join('\r\n');
+    // 4. Blok Ringkasan Statistik
+    const summaryRows = [
+      emptyRow,
+      `"--- RINGKASAN PRODUKTIVITAS BULANAN ---"`,
+      `"Total Catatan Dibuat",${totalCount}`,
+      `"Catatan Selesai",${completedCount},"${percent}%"`,
+      `"Catatan Belum Selesai",${activeCount},"${100 - percent}%"`,
+    ];
+
+    const csvContent =
+      BOM +
+      [
+        titleRow,
+        metaRow,
+        emptyRow,
+        tableHeaders.join(','),
+        ...rows,
+        ...summaryRows,
+      ].join('\r\n');
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `rekap-catatan-${MONTH_NAMES[month].toLowerCase()}-${year}.csv`;
+
+    // Format nama file: rekap-catatan-[nama_user]-[bulan]-[tahun].csv
+    const sanitizedUser = cleanUserName.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    link.download = `rekap-catatan-${sanitizedUser}-${MONTH_NAMES[month].toLowerCase()}-${year}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -415,6 +457,34 @@ export default function CalendarModal({
             </div>
           )}
         </div>
+
+        {/* ================== RINGKASAN PRODUKTIVITAS BULANAN ================== */}
+        {todos.length > 0 && (
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-3">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Tuntas</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {todos.filter((t) => t.completed).length} tugas
+                </span>
+              </div>
+              <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Aktif</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300">
+                  {todos.filter((t) => !t.completed).length} tugas
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Tingkat Selesai</span>
+              <span className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                {Math.round((todos.filter((t) => t.completed).length / todos.length) * 100)}%
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ================== LEGENDA WARNA ================== */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">

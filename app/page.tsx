@@ -1225,6 +1225,7 @@ export default function TodoApp() {
         }}
         selectedDate={selectedDate}
         today={today}
+        userName={session?.user?.name}
       />
     </main>
   );
